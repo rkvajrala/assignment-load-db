@@ -1,0 +1,87 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mule xmlns:tracking="http://www.mulesoft.org/schema/mule/ee/tracking" xmlns:batch="http://www.mulesoft.org/schema/mule/batch"
+	xmlns:db="http://www.mulesoft.org/schema/mule/db"
+	xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core" xmlns:file="http://www.mulesoft.org/schema/mule/file" xmlns="http://www.mulesoft.org/schema/mule/core" xmlns:doc="http://www.mulesoft.org/schema/mule/documentation" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+http://www.mulesoft.org/schema/mule/file http://www.mulesoft.org/schema/mule/file/current/mule-file.xsd
+http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd
+http://www.mulesoft.org/schema/mule/db http://www.mulesoft.org/schema/mule/db/current/mule-db.xsd
+http://www.mulesoft.org/schema/mule/batch http://www.mulesoft.org/schema/mule/batch/current/mule-batch.xsd
+http://www.mulesoft.org/schema/mule/ee/tracking http://www.mulesoft.org/schema/mule/ee/tracking/current/mule-tracking-ee.xsd">
+	<db:config name="Database_Config" doc:name="Database Config" doc:id="f2ed0102-d721-4e7b-88ef-f46eb6f2b2a6" >
+		<db:my-sql-connection host="127.0.0.1" port="3306" user="root" password="Anirudh2008" database="Account" />
+	</db:config>
+	<file:config name="File_Config" doc:name="File Config" doc:id="558780d5-d923-4c26-bcd7-e1b0cde77598" >
+		<file:connection workingDir="/Users/venkata/load/huge" />
+	</file:config>
+	<flow name="assignment-a2a-load-file-dbFlow" doc:id="568b1c2d-4213-44c0-8c89-589aaf392e42" initialState="stopped">
+		<file:listener doc:name="On New or Updated File" doc:id="a6d219c6-9b78-47e5-9fa3-d19c7e176cc9" directory="/Users/venkata/load/in" outputMimeType="application/csv" applyPostActionWhenFailed="false" autoDelete="true">
+			<scheduling-strategy >
+				<fixed-frequency />
+			</scheduling-strategy>
+			<file:matcher filenamePattern="*.csv" />
+		</file:listener>
+		<batch:job jobName="assignment-a2a-load-file-dbBatch_Job" doc:id="423a8404-773e-4c76-ad4d-8be046531557" blockSize="500" maxConcurrency="10">
+			<batch:process-records >
+				<batch:step name="Batch_Step" doc:id="edd13893-32cc-42c2-bca0-012523384ca1" >
+					<ee:transform doc:name="Transform Message" doc:id="1b26db48-2364-4d32-92d5-6dbdfad79442">
+						<ee:message>
+							<ee:set-payload><![CDATA[%dw 2.0
+input payload application/csv separator=','
+output application/json
+---
+payload map {
+	a1 :  $.addressline1,
+	a2 :  $.addressline2,
+	c1 :  $.city,
+	d1 :  $.state,
+	e1 :  $.zip
+}]]></ee:set-payload>
+						</ee:message>
+					</ee:transform>
+					<db:insert doc:name="Insert" doc:id="978909c2-3e9e-441f-b6d9-0e9b59d67d70" config-ref="Database_Config">
+						<db:sql>insert into Address (address1,address2,city,state,zip)values(:a1,:a2,:c1,:d1,:e1)a</db:sql>
+						<db:input-parameters><![CDATA[#[payload[0]]]]></db:input-parameters>
+					    
+					</db:insert>
+				</batch:step>
+			</batch:process-records>
+		</batch:job>
+	</flow>
+	<flow name="assignment-a2a-load-file-dbFlow1" doc:id="f87cdb4b-0fa4-4330-8b5b-e7c104207092" initialState="started" maxConcurrency="1">
+		<file:listener doc:name="On New or Updated File" doc:id="e80afa70-2aa3-4a26-a541-d0a9d17b1239" config-ref="File_Config" directory="/Users/venkata/load/huge/in" recursive="false" autoDelete="true" outputMimeType="application/csv">
+			<scheduling-strategy >
+				<fixed-frequency frequency="15" timeUnit="MINUTES"/>
+			</scheduling-strategy>
+			<file:matcher filenamePattern="*.csv"/>
+		</file:listener>
+		<batch:job jobName="assignment-a2a-load-file-dbBatch_Job1" doc:id="409c5dbc-69d4-4bf4-8c81-b173a9c63a89" blockSize="3000">
+			<batch:process-records >
+				<batch:step name="Batch_Step1" doc:id="2155b63c-0306-4edf-b5b2-11da8bf7e905" >
+					<ee:transform doc:name="Transform Message" doc:id="97b5b1f3-64c3-43ab-ae32-78d97cf7c9f3" >
+						<ee:message >
+							<ee:set-payload ><![CDATA[%dw 2.0
+output application/java
+---
+payload[0]]]></ee:set-payload>
+						</ee:message>
+					</ee:transform>
+					<batch:aggregator doc:name="Batch Aggregator" doc:id="24cb6d8e-df8d-4793-8148-e8b770330f1c" size="500">
+						<ee:transform doc:name="Transform Message" doc:id="8291e760-ce99-482d-8fff-0181e460863f" >
+							<ee:message >
+								<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+payload 
+]]></ee:set-payload>
+							</ee:message>
+						</ee:transform>
+						<db:bulk-insert doc:name="Bulk insert" doc:id="eea4f9e5-2f81-442f-82cf-1172bf298695" config-ref="Database_Config">
+							<db:sql >insert into Address (address1,address2,city,state,zip)values(:addressline1,:addressline2,:city,:state,:zip)</db:sql>
+						</db:bulk-insert>
+					</batch:aggregator>
+				</batch:step>
+			</batch:process-records>
+		</batch:job>
+	</flow>
+</mule>
