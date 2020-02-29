@@ -44,6 +44,7 @@ payload map {
 						<db:input-parameters><![CDATA[#[payload[0]]]]></db:input-parameters>
 					    
 					</db:insert>
+					<logger level="INFO" doc:name="Logger" doc:id="fce8b737-198b-4d26-9bc5-d9e1ee26322d" message="#[payload]"/>
 				</batch:step>
 			</batch:process-records>
 		</batch:job>
